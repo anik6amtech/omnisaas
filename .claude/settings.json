@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)", "Bash(git commit *)", "Bash(git checkout *)", "Bash(git branch *)", "Bash(git init *)",
+      "Bash(php artisan *)", "Bash(composer *)", "Bash(npm *)", "Bash(make *)",
+      "Bash(./vendor/bin/pint *)", "Bash(./vendor/bin/pest *)", "Bash(./vendor/bin/phpstan *)",
+      "Bash(docker *)", "Bash(docker compose *)",
+      "Read", "Edit"
+    ],
+    "deny": [
+      "Bash(rm -rf *)", "Bash(sudo *)",
+      "Read(./.env)", "Read(./.env.*)", "Edit(./.env)"
+    ],
+    "ask": [ "Bash(git push *)" ]
+  },
+  "defaultMode": "acceptEdits"
+}
