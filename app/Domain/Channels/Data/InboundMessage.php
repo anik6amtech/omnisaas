@@ -20,5 +20,12 @@ final readonly class InboundMessage
         public ?string $text = null,
         public array $attachments = [],
         public array $raw = [],
+        public string $kind = 'message',   // message | comment (comment-to-DM)
+        public ?string $commentId = null,  // set when kind === comment
     ) {}
+
+    public function isComment(): bool
+    {
+        return $this->kind === 'comment';
+    }
 }

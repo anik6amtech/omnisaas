@@ -4,6 +4,7 @@ namespace App\Domain\Messaging\Jobs;
 
 use App\Domain\AI\Jobs\GenerateAiReply;
 use App\Domain\Channels\Data\InboundMessage;
+use App\Domain\Channels\Jobs\SendCommentReply;
 use App\Domain\Inbox\Services\ConversationService;
 use App\Domain\Messaging\Enums\MessageAuthor;
 use App\Domain\Messaging\Enums\MessageDirection;
@@ -70,6 +71,12 @@ class IngestInboundMessage implements ShouldQueue
             ]);
 
             MessageReceived::dispatch($message);
+
+            // Comment-to-DM: publicly acknowledge the comment, then let the AI
+            // handle the private DM via the normal reply path below.
+            if ($this->message->isComment() && $this->message->commentId !== null) {
+                SendCommentReply::dispatch($channel->getKey(), $this->message->commentId, 'DM করেছি ✅');
+            }
 
             if ($conversation->ai_enabled
                 && $conversation->isWithinWindow()

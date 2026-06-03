@@ -3,11 +3,11 @@
 namespace App\Domain\Channels;
 
 use App\Domain\Channels\Contracts\ChannelDriver;
+use App\Domain\Channels\Drivers\InstagramDriver;
 use App\Domain\Channels\Drivers\MessengerDriver;
 use App\Domain\Channels\Drivers\WhatsAppCloudDriver;
 use App\Domain\Channels\Enums\ChannelType;
 use App\Models\Channel;
-use RuntimeException;
 
 /**
  * Resolves a channel-agnostic {@see ChannelDriver} by channel type. Drivers are
@@ -20,7 +20,7 @@ class ChannelManager
         return match ($type) {
             ChannelType::WhatsApp => new WhatsAppCloudDriver,
             ChannelType::Facebook => new MessengerDriver,
-            ChannelType::Instagram => throw new RuntimeException('Instagram driver lands in E11.'),
+            ChannelType::Instagram => new InstagramDriver,
         };
     }
 

@@ -38,4 +38,9 @@ class ChannelFactory extends Factory
     {
         return $this->state(fn (): array => ['type' => ChannelType::Facebook]);
     }
+
+    public function instagram(): static
+    {
+        return $this->state(fn (): array => ['type' => ChannelType::Instagram]);
+    }
 }
