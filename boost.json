@@ -1,0 +1,23 @@
+{
+    "agents": [
+        "claude_code"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "packages": [
+        "filament/filament",
+        "prism-php/prism",
+        "spatie/laravel-permission"
+    ],
+    "sail": false,
+    "skills": [
+        "laravel-best-practices",
+        "configuring-horizon",
+        "pennant-development",
+        "pest-testing",
+        "developing-with-prism",
+        "laravel-permission-development"
+    ]
+}
