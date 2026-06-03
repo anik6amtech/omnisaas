@@ -1,58 +1,112 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# OmniReply
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Omnichannel, AI-powered auto-reply platform for f-commerce sellers — answers
+WhatsApp, Instagram, and Facebook customers instantly, grounded in the seller's
+own catalog and policies, captures orders, and hands off to a human when it
+matters. Built to live inside Meta's free 24-hour service window.
 
-## About Laravel
+> **Status:** Phase 0 — Foundation. This repository currently contains the
+> Dockerized skeleton (two planes, tenancy, control panel, queues, realtime,
+> dynamic config engine, domain-module contracts). Feature epics (channels,
+> pipeline, AI/RAG, inbox, billing) build on top — see `docs/`.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Architecture in one breath
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+One Laravel 13 codebase, one PostgreSQL DB, run as **four process roles** from a
+single FrankenPHP image (web · workers · websockets · scheduler), split into
+**two planes**:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Plane | Path | Guard | Audience | Built with |
+|---|---|---|---|---|
+| **Control plane** | `/admin` | `admin` | OmniReply operators | Filament |
+| **Tenant plane** | `/app` | `web` | F-commerce sellers | Livewire + Reverb |
 
-## Learning Laravel
+A **dynamic config + entitlements engine** (settings + Pennant flags + DB plan
+limits) sits between them. Full detail in [`CLAUDE.md`](CLAUDE.md) and
+[`docs/`](docs/) (product spec, architecture, dev plan, UX).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+**Stack:** Laravel 13 · PHP 8.4 · Livewire 3 + Filament 4 · PostgreSQL 17 +
+pgvector · Redis · Horizon · Reverb · Octane + FrankenPHP · Prism (OpenRouter) ·
+Sanctum · spatie-permission/settings · Pennant · SSLCommerz · Docker.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Quick start (Docker)
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requires Docker + Docker Compose.
 
 ```bash
-composer require laravel/boost --dev
+git clone <repo-url> omnireply && cd omnireply
 
-php artisan boost:install
+cp .env.example .env          # never commit .env
+make up                       # build + start the full stack
+make key                      # generate APP_KEY (first run only)
+make fresh                    # migrate + seed (or: make migrate && make seed)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+That's it. The stack:
 
-## Contributing
+| Service | URL | Notes |
+|---|---|---|
+| App (tenant `/app` + control `/admin`) | http://localhost:8000 | Octane/FrankenPHP |
+| Control panel | http://localhost:8000/admin | Filament (operators) |
+| Horizon (queues) | http://localhost:8000/horizon | operators only (local: open) |
+| Reverb (websockets) | ws://localhost:8080 | realtime inbox |
+| Mailpit (mail catcher) | http://localhost:8025 | — |
+| MinIO console (S3) | http://localhost:9001 | `omnireply` / `secret1234` |
+| Postgres | localhost:**5434** | published off 5432 to avoid clashes |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Seeded logins (local only — change everywhere else)
 
-## Code of Conduct
+| Role | URL | Email | Password |
+|---|---|---|---|
+| Operator (admin guard) | `/admin` | `admin@omnireply.test` | `password` |
+| Seller (web guard) | `/app` *(E1)* | `seller@omnireply.test` | `password` |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The seed also creates a `Demo Store` workspace and the operator RBAC roles
+(Super Admin / Support / Billing / Content Editor).
 
-## Security Vulnerabilities
+## Common commands
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+make up / down / ps / logs     # stack lifecycle
+make shell                     # bash into the app container
+make migrate / fresh / seed    # database
+make test                      # Pest suite (Postgres-backed)
+make pint                      # format (PSR-12)
+make stan                      # Larastan (level 5)
+make watch                     # Octane with hot reload
+make reload                    # reload Octane workers after code changes
+```
+
+Run `make help` for the full list.
+
+## Quality gates
+
+`vendor/bin/pint` (format) · `vendor/bin/phpstan analyse` (Larastan L5) ·
+`php artisan test` (Pest). All three run in CI (`.github/workflows/ci.yml`)
+against Postgres+pgvector and Redis service containers, plus a Docker image
+build.
+
+## Project structure
+
+```
+app/
+  Domain/<Module>/   bounded contexts (Tenancy, Channels, Inbox, Messaging, AI,
+                     Knowledge, Catalog, Orders, Billing, Analytics) — each with
+                     a README; behavior lives in Actions/Services, never in
+                     controllers/components/jobs.
+  Models/            Eloquent models (User, AdminUser, Workspace, + E2/E3 stubs)
+  Filament/          control-plane resources & pages
+  Settings/ Features/ dynamic config (spatie settings) + feature flags (Pennant)
+docs/                authoritative product spec, architecture, dev plan, UX
+docker/              Postgres init (creates the test DB)
+```
+
+## Configuration & secrets
+
+`.env` holds master secrets (`APP_KEY`, DB creds) and is never committed.
+Panel-editable *operational* secrets (provider keys, Meta tokens) are encrypted
+at rest in the DB — never in `.env` or the UI. See `CLAUDE.md` → Conventions.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Proprietary. © OmniReply.
