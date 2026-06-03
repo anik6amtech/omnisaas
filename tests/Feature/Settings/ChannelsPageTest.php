@@ -67,6 +67,18 @@ it('disconnects a channel', function () {
     expect(Channel::withoutGlobalScopes()->whereKey($channel->id)->exists())->toBeFalse();
 });
 
+it('shows a channel-specific setup guide that updates with the selection', function () {
+    channelSeller();
+
+    Livewire::test(ChannelsPage::class)
+        ->assertSet('type', 'whatsapp')
+        ->assertSee('Phone number ID', false)
+        ->set('type', 'instagram')
+        ->assertSee('comment-to-DM', false)
+        ->set('type', 'facebook')
+        ->assertSee('Page', false);
+});
+
 it('rejects connecting a channel already owned by another workspace', function () {
     Channel::factory()->whatsapp()->create(['external_id' => 'TAKEN']); // another workspace
     channelSeller();
