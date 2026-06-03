@@ -6,6 +6,7 @@ use App\Domain\Channels\ChannelManager;
 use App\Domain\Channels\Enums\ChannelType;
 use App\Domain\Messaging\Jobs\IngestInboundMessage;
 use App\Http\Controllers\Controller;
+use App\Models\Channel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -20,15 +21,20 @@ class MetaWebhookController extends Controller
     public function __construct(private readonly ChannelManager $channels) {}
 
     /** GET — Meta subscription verification handshake. */
-    public function verify(Request $request, string $type): Response
+    public function verify(Request $request, string $type, ?string $channel = null): Response
     {
         abort_unless(ChannelType::tryFrom($type) !== null, 404);
 
+        $verifyToken = (string) config('services.meta.webhook_verify_token');
+
+        if ($channel !== null) {
+            $model = Channel::query()->withoutGlobalScopes()->find($channel);
+            abort_if($model === null, 404);
+            $verifyToken = $model->effectiveVerifyToken();
+        }
+
         $matches = $request->query('hub_mode') === 'subscribe'
-            && hash_equals(
-                (string) config('services.meta.webhook_verify_token'),
-                (string) $request->query('hub_verify_token'),
-            );
+            && hash_equals($verifyToken, (string) $request->query('hub_verify_token'));
 
         abort_unless($matches, 403);
 
@@ -36,7 +42,7 @@ class MetaWebhookController extends Controller
     }
 
     /** POST — receive, normalise, enqueue, return 200 fast. */
-    public function handle(Request $request, string $type): JsonResponse
+    public function handle(Request $request, string $type, ?string $channel = null): JsonResponse
     {
         $channelType = ChannelType::from($type);
 

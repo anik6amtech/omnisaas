@@ -23,8 +23,10 @@ interface ChannelDriver
 {
     /**
      * Verify the inbound webhook signature (Meta X-Hub-Signature-256, HMAC).
+     * The app secret is passed in (per-channel, or the shared app's) so the
+     * driver stays stateless.
      */
-    public function verifyWebhook(Request $request): bool;
+    public function verifyWebhook(Request $request, string $appSecret): bool;
 
     /**
      * Map a channel-specific webhook payload to canonical inbound messages.

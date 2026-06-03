@@ -90,3 +90,28 @@ it('rejects connecting a channel already owned by another workspace', function (
         ->call('connect')
         ->assertHasErrors('external_id');
 });
+
+it('stores per-channel Meta app credentials encrypted, with .env fallback', function () {
+    channelSeller();
+
+    Livewire::test(ChannelsPage::class)
+        ->set('type', 'facebook')
+        ->set('external_id', 'PAGE7')
+        ->set('access_token', 'tok')
+        ->set('app_id', 'APP1')
+        ->set('app_secret', 'my-app-secret')
+        ->set('verify_token', 'my-verify')
+        ->call('connect')
+        ->assertHasNoErrors();
+
+    $channel = Channel::withoutGlobalScopes()->where('external_id', 'PAGE7')->sole();
+
+    expect($channel->effectiveAppSecret())->toBe('my-app-secret')
+        ->and($channel->effectiveVerifyToken())->toBe('my-verify')
+        ->and(DB::table('channels')->where('id', $channel->id)->value('app_secret'))->not->toBe('my-app-secret');
+
+    // A channel with no own credentials falls back to the shared app's (.env).
+    config(['services.meta.app_secret' => 'shared-secret']);
+    $shared = Channel::factory()->whatsapp()->create(['app_secret' => null]);
+    expect($shared->effectiveAppSecret())->toBe('shared-secret');
+});

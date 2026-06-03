@@ -47,9 +47,13 @@ Route::middleware(['auth:web', 'workspace'])->prefix('app')->group(function () {
 | verification handshake; POST is HMAC-verified before the pipeline sees it.
 */
 Route::prefix('webhooks/meta')->group(function () {
+    // Hosted model — operator's shared Meta app (credentials from .env).
     Route::get('{type}', [MetaWebhookController::class, 'verify']);
-    Route::post('{type}', [MetaWebhookController::class, 'handle'])
-        ->middleware('meta.webhook');
+    Route::post('{type}', [MetaWebhookController::class, 'handle'])->middleware('meta.webhook');
+
+    // Bring-your-own Meta app — per-channel credentials (self-hosted / agency).
+    Route::get('{type}/{channel}', [MetaWebhookController::class, 'verify']);
+    Route::post('{type}/{channel}', [MetaWebhookController::class, 'handle'])->middleware('meta.webhook');
 });
 
 /*

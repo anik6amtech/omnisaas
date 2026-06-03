@@ -21,16 +21,15 @@ abstract class AbstractMetaDriver implements ChannelDriver
      * Verify Meta's X-Hub-Signature-256 (HMAC-SHA256 of the raw body with the
      * app secret). Constant-time comparison; rejects when unconfigured.
      */
-    public function verifyWebhook(Request $request): bool
+    public function verifyWebhook(Request $request, string $appSecret): bool
     {
         $signature = (string) $request->header('X-Hub-Signature-256', '');
-        $secret = (string) config('services.meta.app_secret');
 
-        if ($secret === '' || ! str_starts_with($signature, 'sha256=')) {
+        if ($appSecret === '' || ! str_starts_with($signature, 'sha256=')) {
             return false;
         }
 
-        $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), $secret);
+        $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), $appSecret);
 
         return hash_equals($expected, $signature);
     }

@@ -32,6 +32,14 @@ class ChannelsPage extends Component
     #[Validate('required|string')]
     public string $access_token = '';
 
+    // Optional — "bring your own Meta app" (self-hosted / agency). Blank ⇒ the
+    // platform's shared app credentials (config/services.php) are used.
+    public string $app_id = '';
+
+    public string $app_secret = '';
+
+    public string $verify_token = '';
+
     /**
      * @return Collection<int, Channel>
      */
@@ -51,6 +59,9 @@ class ChannelsPage extends Component
                 trim($this->external_id),
                 trim($this->access_token),
                 $this->name ?: null,
+                trim($this->app_id) ?: null,
+                trim($this->app_secret) ?: null,
+                trim($this->verify_token) ?: null,
             );
         } catch (UniqueConstraintViolationException) {
             $this->addError('external_id', 'This channel is already connected to another workspace.');
@@ -58,8 +69,14 @@ class ChannelsPage extends Component
             return;
         }
 
-        $this->reset('external_id', 'name', 'access_token');
+        $this->reset('external_id', 'name', 'access_token', 'app_id', 'app_secret', 'verify_token');
         unset($this->channels);
+    }
+
+    /** Per-channel webhook URL (bring-your-own-app); paste into that Meta app. */
+    public function channelWebhookUrl(Channel $channel): string
+    {
+        return url("/webhooks/meta/{$channel->type->value}/{$channel->id}");
     }
 
     public function disconnect(string $id): void

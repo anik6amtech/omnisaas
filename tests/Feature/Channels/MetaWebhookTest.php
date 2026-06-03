@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Messaging\Jobs\IngestInboundMessage;
+use App\Models\Channel;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 
@@ -110,4 +111,40 @@ it('ingests a signed Messenger webhook and enqueues the message', function () {
     Queue::assertPushed(IngestInboundMessage::class, fn (IngestInboundMessage $job) => $job->message->recipientId === 'PAGE1'
         && $job->message->text === 'ki ki ache?'
         && $job->message->channelType === 'facebook');
+});
+
+it('verifies a bring-your-own-app webhook with the per-channel app secret', function () {
+    Queue::fake();
+    $channel = Channel::factory()->whatsapp()->create([
+        'external_id' => 'PHONE9',
+        'app_secret' => 'chan-secret',     // its own app, NOT the shared .env secret
+        'verify_token' => 'chan-verify',
+    ]);
+
+    $payload = ['entry' => [['changes' => [['value' => [
+        'metadata' => ['phone_number_id' => 'PHONE9'],
+        'messages' => [['from' => '8801', 'id' => 'wamid.byo', 'type' => 'text', 'text' => ['body' => 'hi']]],
+    ]]]]]];
+    $body = json_encode($payload);
+
+    $post = fn (string $secret) => test()->call(
+        'POST', "/webhooks/meta/whatsapp/{$channel->id}", [], [], [],
+        ['CONTENT_TYPE' => 'application/json', 'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, $secret)],
+        $body,
+    );
+
+    $post('chan-secret')->assertOk();                  // signed with the channel's own secret
+    Queue::assertPushed(IngestInboundMessage::class);
+
+    $post('app-secret')->assertForbidden();            // the shared secret must NOT work here
+});
+
+it('answers the per-channel verification challenge with the channel verify token', function () {
+    $channel = Channel::factory()->whatsapp()->create(['verify_token' => 'chan-verify']);
+
+    $this->get("/webhooks/meta/whatsapp/{$channel->id}?hub_mode=subscribe&hub_verify_token=chan-verify&hub_challenge=99")
+        ->assertOk()->assertSee('99');
+
+    $this->get("/webhooks/meta/whatsapp/{$channel->id}?hub_mode=subscribe&hub_verify_token=verify-token&hub_challenge=99")
+        ->assertForbidden(); // the shared verify token must NOT work for an own-app channel
 });

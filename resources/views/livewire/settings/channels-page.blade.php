@@ -37,10 +37,24 @@
             @error('access_token') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
-        <div class="space-y-1 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
-            <div>Webhook callback URL: <code class="font-mono text-gray-700">{{ $this->webhookUrl($type) }}</code></div>
-            <div>Verify token: <code class="font-mono text-gray-700">{{ $this->verifyToken() ?: 'set META_WEBHOOK_VERIFY_TOKEN in .env' }}</code></div>
-            <div>App secret: signs every webhook (HMAC) — set <code class="font-mono text-gray-700">META_APP_SECRET</code> in .env.</div>
+        {{-- Bring your own Meta app (per-tenant credentials) --}}
+        <details class="rounded-lg border border-gray-200">
+            <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-700">Bring your own Meta app (advanced)</summary>
+            <div class="space-y-3 border-t border-gray-200 p-3">
+                <p class="text-xs text-gray-500">Connecting your <b>own</b> Meta app? Enter its credentials — they're stored encrypted, per channel. Leave blank to use the platform's shared app.</p>
+                <input wire:model="app_id" placeholder="App ID" autocomplete="off"
+                    class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" />
+                <input type="password" wire:model="app_secret" placeholder="App secret (HMAC)" autocomplete="new-password"
+                    class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" />
+                <input wire:model="verify_token" placeholder="Webhook verify token" autocomplete="off"
+                    class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" />
+            </div>
+        </details>
+
+        <div class="rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
+            <b>Hosted (shared app):</b> webhook URL <code class="font-mono text-gray-700">{{ $this->webhookUrl($type) }}</code>;
+            verify token + app secret come from the platform (<code class="font-mono">.env</code>).<br>
+            <b>Own app:</b> after connecting, use that channel's dedicated webhook URL shown below, with the verify token + app secret you entered above.
         </div>
 
         <button type="submit" class="rounded-lg bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700">Connect channel</button>
@@ -66,9 +80,12 @@
     <div class="space-y-2">
         @forelse ($this->channels as $channel)
             <div wire:key="ch-{{ $channel->id }}" class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">
-                <div>
+                <div class="min-w-0">
                     <p class="font-medium text-gray-900">{{ $channel->name ?? $channel->type->label() }}</p>
                     <p class="text-xs text-gray-500">{{ $channel->type->label() }} · {{ $channel->external_id }}</p>
+                    @if ($channel->app_id)
+                        <p class="mt-0.5 truncate text-xs text-gray-400">Webhook: <code class="font-mono">{{ $this->channelWebhookUrl($channel) }}</code></p>
+                    @endif
                 </div>
                 <div class="flex items-center gap-3">
                     <span @class([
