@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // Meta (WhatsApp / Messenger / Instagram). The app secret signs every
+    // webhook (HMAC); the verify token answers Meta's GET subscription check.
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
+        'graph_base' => env('META_GRAPH_BASE', 'https://graph.facebook.com'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v21.0'),
+    ],
+
 ];

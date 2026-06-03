@@ -14,6 +14,7 @@ final readonly class InboundMessage
      */
     public function __construct(
         public string $channelType,        // whatsapp | instagram | facebook
+        public string $recipientId,        // receiving channel's external_id (phone_number_id / page id)
         public string $externalMessageId,  // Meta message id — idempotency key
         public string $senderId,
         public ?string $text = null,
