@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Domain\Tenancy\Context\CurrentWorkspace;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +12,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Active workspace, per request/job. `scoped` => Octane flushes it
+        // between requests, so tenant context never leaks across requests.
+        $this->app->scoped(CurrentWorkspace::class);
     }
 
     /**

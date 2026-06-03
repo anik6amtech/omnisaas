@@ -7,19 +7,25 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
+/**
+ * A tenant user (seller / agent) — the tenant plane (/app) identity on the
+ * `web` guard. Belongs to one or more workspaces; the Sanctum token (and a
+ * future Flutter app) authenticate as this model too.
+ */
+#[Fillable(['name', 'email', 'password', 'current_workspace_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * Get the attributes that should be cast.
-     *
      * @return array<string, string>
      */
     protected function casts(): array
@@ -28,5 +34,27 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Workspaces this user is a member of, with their tenant-level role.
+     *
+     * @return BelongsToMany<Workspace, $this>
+     */
+    public function workspaces(): BelongsToMany
+    {
+        return $this->belongsToMany(Workspace::class)
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    /**
+     * The workspace the user is actively viewing — drives tenant scoping.
+     *
+     * @return BelongsTo<Workspace, $this>
+     */
+    public function currentWorkspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class, 'current_workspace_id');
     }
 }

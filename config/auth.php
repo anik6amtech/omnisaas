@@ -38,9 +38,16 @@ return [
     */
 
     'guards' => [
+        // Tenant plane (/app) — f-commerce sellers.
         'web' => [
             'driver' => 'session',
             'provider' => 'users',
+        ],
+
+        // Control plane (/admin) — OmniReply operators (Filament).
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admin_users',
         ],
     ],
 
@@ -67,10 +74,10 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        'admin_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\AdminUser::class,
+        ],
     ],
 
     /*
