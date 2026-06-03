@@ -4,6 +4,7 @@ namespace App\Livewire\Agency;
 
 use App\Domain\Tenancy\Actions\SwitchWorkspace;
 use App\Domain\Tenancy\Services\AgencyService;
+use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\Workspace;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -17,6 +18,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class AgencyPage extends Component
 {
+    use InteractsWithWorkspace;
+
     public function agency(): ?Workspace
     {
         return auth()->user()?->currentWorkspace;

@@ -5,6 +5,7 @@ namespace App\Livewire\Inbox;
 use App\Domain\Inbox\Enums\ConversationStatus;
 use App\Domain\Messaging\Actions\SendMessageAction;
 use App\Domain\Messaging\Enums\MessageAuthor;
+use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Support\Collection;
@@ -20,6 +21,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class InboxPage extends Component
 {
+    use InteractsWithWorkspace;
+
     public ?string $selectedId = null;
 
     public string $filter = 'all'; // all | ai_handling | needs_human | resolved

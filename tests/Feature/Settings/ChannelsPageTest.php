@@ -39,6 +39,28 @@ it('connects a channel for the workspace with an encrypted token', function () {
     expect(DB::table('channels')->where('id', $channel->id)->value('access_token'))->not->toBe('secret-token');
 });
 
+it('connects without route middleware setting the workspace (Livewire update path)', function () {
+    // Reproduces the browser bug: Livewire's /livewire/update AJAX call bypasses
+    // the `workspace` route middleware, so CurrentWorkspace is never set by the
+    // route. The InteractsWithWorkspace boot hook must establish it from the
+    // authenticated seller — otherwise workspace_id is null on insert.
+    $workspace = Workspace::factory()->create();
+    $user = User::factory()->create(['current_workspace_id' => $workspace->id]);
+    $workspace->users()->attach($user, ['role' => 'owner']);
+    test()->actingAs($user, 'web');
+    // NOTE: deliberately NOT calling CurrentWorkspace::set() here.
+
+    Livewire::test(ChannelsPage::class)
+        ->set('type', 'whatsapp')
+        ->set('external_id', 'NOMIDDLEWARE')
+        ->set('access_token', 'tok')
+        ->call('connect')
+        ->assertHasNoErrors();
+
+    $channel = Channel::withoutGlobalScopes()->where('external_id', 'NOMIDDLEWARE')->sole();
+    expect($channel->workspace_id)->toBe($workspace->id);
+});
+
 it('validates required fields', function () {
     channelSeller();
 

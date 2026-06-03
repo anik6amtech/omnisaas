@@ -3,6 +3,7 @@
 namespace App\Livewire\Catalog;
 
 use App\Domain\Catalog\Actions\ImportCatalogCsv;
+use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\Product;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -13,6 +14,7 @@ use Livewire\WithFileUploads;
 #[Layout('components.layouts.app')]
 class CatalogPage extends Component
 {
+    use InteractsWithWorkspace;
     use WithFileUploads;
 
     public $csv;

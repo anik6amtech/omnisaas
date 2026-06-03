@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Domain\Channels\Actions\ConnectChannel;
 use App\Domain\Channels\Enums\ChannelType;
+use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\Channel;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
@@ -21,6 +22,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class ChannelsPage extends Component
 {
+    use InteractsWithWorkspace;
+
     #[Validate('required|in:whatsapp,instagram,facebook')]
     public string $type = 'whatsapp';
 

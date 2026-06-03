@@ -3,6 +3,7 @@
 namespace App\Livewire\Knowledge;
 
 use App\Domain\Knowledge\Actions\IngestKnowledge;
+use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\KnowledgeDocument;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -13,6 +14,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class KnowledgePage extends Component
 {
+    use InteractsWithWorkspace;
+
     public string $title = '';
 
     #[Validate('required|string|min:3')]

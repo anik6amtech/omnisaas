@@ -3,6 +3,7 @@
 namespace App\Livewire\Orders;
 
 use App\Domain\Orders\Actions\CreateOrderPaymentLink;
+use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\Order;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -12,6 +13,8 @@ use Livewire\Component;
 #[Layout('components.layouts.app')]
 class OrdersPage extends Component
 {
+    use InteractsWithWorkspace;
+
     public ?string $paymentUrl = null;
 
     /**
