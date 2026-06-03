@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\PaymentIpnController;
+use App\Livewire\Agency\AgencyPage;
 use App\Livewire\Auth\Login;
 use App\Livewire\Catalog\CatalogPage;
 use App\Livewire\Inbox\InboxPage;
@@ -28,6 +29,7 @@ Route::middleware(['auth:web', 'workspace'])->prefix('app')->group(function () {
     Route::get('/catalog', CatalogPage::class)->name('app.catalog');
     Route::get('/knowledge', KnowledgePage::class)->name('app.knowledge');
     Route::get('/orders', OrdersPage::class)->name('app.orders');
+    Route::get('/agency', AgencyPage::class)->name('app.agency');
 
     Route::post('/logout', function () {
         Auth::guard('web')->logout();
