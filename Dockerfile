@@ -9,6 +9,8 @@
 FROM dunglas/frankenphp:php8.4 AS base
 WORKDIR /app
 ENV COMPOSER_ALLOW_SUPERUSER=1
+# Pin the latest extension installer (resilient redis/pecl sourcing).
+ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/install-php-extensions
 # pdo_pgsql/pgsql -> Postgres(+pgvector via SQL); redis -> cache/queue/locks;
 # pcntl -> Octane/Horizon; intl/opcache/zip/bcmath/gd -> framework + media.
 RUN install-php-extensions \
@@ -50,8 +52,11 @@ ENV APP_ENV=production
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=assets /app/public/build ./public/build
-RUN composer dump-autoload --optimize \
- && php artisan optimize \
+# NOTE: do NOT `php artisan optimize` (config:cache) at build time — there is no
+# .env here, so it would bake default config and the runtime container would
+# ignore its injected env. Cache config at container start instead, once env is
+# present (e.g. an entrypoint running `php artisan config:cache`).
+RUN composer dump-autoload --optimize --classmap-authoritative \
  && chown -R www-data:www-data storage bootstrap/cache
 EXPOSE 8000
 CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000"]

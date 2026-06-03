@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Start at level 5 and ratchet upward as the codebase matures.
+    # (checkModelProperties is intentionally left off until models carry full
+    # @property annotations — revisit once the E2/E3 schema lands.)
+    level: 5
+
+    paths:
+        - app
+        - database
+        - routes
+        - config
