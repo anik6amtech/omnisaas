@@ -1,0 +1,155 @@
+# =============================================================================
+# OmniReply — local development stack.
+# One image (Dockerfile target: dev) runs four app roles; backing services are
+# Postgres+pgvector, Redis, Mailpit, MinIO, and a Node/Vite asset server.
+#
+# Infra config is injected via the `environment` anchor below and takes
+# precedence over .env (Laravel's dotenv is immutable and won't overwrite vars
+# already set in the container). APP_KEY is read from the bind-mounted .env.
+# First run: `cp .env.example .env && make key`.
+# =============================================================================
+
+x-app-build: &app-build
+  build:
+    context: .
+    target: dev
+  image: omnireply/app:dev
+  restart: unless-stopped
+  volumes:
+    - .:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+x-app-env: &app-env
+  APP_ENV: local
+  APP_DEBUG: "true"
+  APP_URL: http://localhost:8000
+  OCTANE_SERVER: frankenphp
+  LOG_CHANNEL: stack
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_DATABASE: omnireply
+  DB_USERNAME: omnireply
+  DB_PASSWORD: secret
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  CACHE_STORE: redis
+  QUEUE_CONNECTION: redis
+  SESSION_DRIVER: redis
+  BROADCAST_CONNECTION: reverb
+  REVERB_APP_ID: omnireply
+  REVERB_APP_KEY: local-reverb-key
+  REVERB_APP_SECRET: local-reverb-secret
+  REVERB_HOST: reverb
+  REVERB_PORT: "8080"
+  REVERB_SCHEME: http
+  REVERB_SERVER_HOST: 0.0.0.0
+  REVERB_SERVER_PORT: "8080"
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+  FILESYSTEM_DISK: local
+  AWS_ACCESS_KEY_ID: omnireply
+  AWS_SECRET_ACCESS_KEY: secret1234
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_BUCKET: omnireply-media
+  AWS_ENDPOINT: http://minio:9000
+  AWS_USE_PATH_STYLE_ENDPOINT: "true"
+
+services:
+  app: # WEB — Octane/FrankenPHP
+    <<: *app-build
+    environment:
+      <<: *app-env
+    ports:
+      - "8000:8000"
+
+  horizon: # WORKERS — queue supervisors
+    <<: *app-build
+    command: php artisan horizon
+    environment:
+      <<: *app-env
+
+  reverb: # REVERB — WebSocket server
+    <<: *app-build
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    environment:
+      <<: *app-env
+    ports:
+      - "8080:8080"
+
+  scheduler: # SCHEDULER — cron loop
+    <<: *app-build
+    command: php artisan schedule:work
+    environment:
+      <<: *app-env
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: omnireply
+      POSTGRES_USER: omnireply
+      POSTGRES_PASSWORD: secret
+    ports:
+      # Host-published on 5434 to avoid clashing with other local Postgres
+      # instances; inside the Docker network the app still uses postgres:5432.
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omnireply -d omnireply"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit: # catches outbound mail locally
+    image: axllent/mailpit
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # web UI
+    restart: unless-stopped
+
+  minio: # local S3-compatible object storage (media/attachments)
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: omnireply
+      MINIO_ROOT_PASSWORD: secret1234
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  node: # Vite dev server / asset build
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

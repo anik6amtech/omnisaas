@@ -36,3 +36,9 @@ Thumbs.db
 # Local SQLite (scaffold default; OmniReply uses Postgres)
 /database/*.sqlite
 /database/*.sqlite-journal
+
+# Octane/FrankenPHP local artifacts (binary is provided by the Docker base image;
+# public/frankenphp-worker.php IS tracked — it's the worker entrypoint)
+**/caddy
+/frankenphp
+/frankenphp-worker.php
