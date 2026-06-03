@@ -6,6 +6,7 @@ use Database\Factories\PlanFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
 
 /**
@@ -54,5 +55,13 @@ class Plan extends Model
     public function allowsFeature(string $feature): bool
     {
         return in_array($feature, Arr::get($this->entitlements ?? [], 'features', []), true);
+    }
+
+    /**
+     * @return HasMany<Subscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
     }
 }

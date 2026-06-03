@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ControlPlaneSeeder::class, // operator (/admin)
+            PlanSeeder::class,         // SaaS tiers + entitlements
             TenantSeeder::class,       // demo workspace + seller (/app)
         ]);
     }
