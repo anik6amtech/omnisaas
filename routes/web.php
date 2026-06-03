@@ -8,6 +8,7 @@ use App\Livewire\Catalog\CatalogPage;
 use App\Livewire\Inbox\InboxPage;
 use App\Livewire\Knowledge\KnowledgePage;
 use App\Livewire\Orders\OrdersPage;
+use App\Livewire\Settings\ChannelsPage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,7 @@ Route::middleware(['auth:web', 'workspace'])->prefix('app')->group(function () {
     Route::get('/knowledge', KnowledgePage::class)->name('app.knowledge');
     Route::get('/orders', OrdersPage::class)->name('app.orders');
     Route::get('/agency', AgencyPage::class)->name('app.agency');
+    Route::get('/settings/channels', ChannelsPage::class)->name('app.settings.channels');
 
     Route::post('/logout', function () {
         Auth::guard('web')->logout();

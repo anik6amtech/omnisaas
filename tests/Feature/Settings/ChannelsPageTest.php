@@ -1,0 +1,80 @@
+<?php
+
+use App\Domain\Tenancy\Context\CurrentWorkspace;
+use App\Livewire\Settings\ChannelsPage;
+use App\Models\Channel;
+use App\Models\User;
+use App\Models\Workspace;
+use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
+
+function channelSeller(): Workspace
+{
+    $workspace = Workspace::factory()->create();
+    $user = User::factory()->create(['current_workspace_id' => $workspace->id]);
+    $workspace->users()->attach($user, ['role' => 'owner']);
+    test()->actingAs($user, 'web');
+    app(CurrentWorkspace::class)->set($workspace);
+
+    return $workspace;
+}
+
+it('connects a channel for the workspace with an encrypted token', function () {
+    $ws = channelSeller();
+
+    Livewire::test(ChannelsPage::class)
+        ->set('type', 'whatsapp')
+        ->set('external_id', 'PHONE123')
+        ->set('name', 'My WhatsApp')
+        ->set('access_token', 'secret-token')
+        ->call('connect')
+        ->assertHasNoErrors();
+
+    $channel = Channel::withoutGlobalScopes()->where('external_id', 'PHONE123')->sole();
+    expect($channel->workspace_id)->toBe($ws->id)
+        ->and($channel->access_token)->toBe('secret-token')
+        ->and($channel->status)->toBe('active');
+
+    // Token is encrypted at rest.
+    expect(DB::table('channels')->where('id', $channel->id)->value('access_token'))->not->toBe('secret-token');
+});
+
+it('validates required fields', function () {
+    channelSeller();
+
+    Livewire::test(ChannelsPage::class)
+        ->set('external_id', '')
+        ->set('access_token', '')
+        ->call('connect')
+        ->assertHasErrors(['external_id', 'access_token']);
+});
+
+it('lists only the workspace channels', function () {
+    $ws = channelSeller();
+    $mine = Channel::factory()->recycle($ws)->create();
+    Channel::factory()->create(); // other workspace
+
+    $ids = Livewire::test(ChannelsPage::class)->instance()->channels->pluck('id');
+    expect($ids)->toContain($mine->id)->toHaveCount(1);
+});
+
+it('disconnects a channel', function () {
+    $ws = channelSeller();
+    $channel = Channel::factory()->recycle($ws)->create();
+
+    Livewire::test(ChannelsPage::class)->call('disconnect', $channel->id);
+
+    expect(Channel::withoutGlobalScopes()->whereKey($channel->id)->exists())->toBeFalse();
+});
+
+it('rejects connecting a channel already owned by another workspace', function () {
+    Channel::factory()->whatsapp()->create(['external_id' => 'TAKEN']); // another workspace
+    channelSeller();
+
+    Livewire::test(ChannelsPage::class)
+        ->set('type', 'whatsapp')
+        ->set('external_id', 'TAKEN')
+        ->set('access_token', 'tok')
+        ->call('connect')
+        ->assertHasErrors('external_id');
+});
