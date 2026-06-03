@@ -1,3 +1,116 @@
+# OmniReply — Project Guide
+
+**One-liner:** Omnichannel, AI-powered auto-reply SaaS for f-commerce sellers
+(WhatsApp, Instagram, Facebook Messenger) — grounded replies from the seller's
+own catalog/FAQ, order capture, and human handoff, built to live inside Meta's
+free 24-hour service window.
+
+Authoritative planning docs live in `docs/` (Spec, Architecture, Dev Plan, UX).
+**The architecture doc is the source of truth for structure;** if guidance here
+conflicts with it, the architecture doc wins. (Laravel/package conventions in the
+Boost block below still apply.)
+
+## The two-plane model (the organizing idea)
+
+One Laravel codebase, one PostgreSQL DB, shared Eloquent models, two panels /
+two guards:
+
+| Plane | Path | Guard | Audience | Built with |
+|---|---|---|---|---|
+| **Control plane** | `/admin` | `admin` | OmniReply operator (us) | Filament |
+| **Tenant plane** | `/app` | `web` | F-commerce sellers (tenants) | Livewire + Reverb inbox + some Filament CRUD |
+
+Between them sits a **dynamic config + entitlements engine** (spatie settings +
+Laravel Pennant flags + DB-defined plan limits). The tenant plane reads its
+behavior from those records at runtime — launching a plan or toggling a feature
+is a panel action, **zero deploy**.
+
+**Runtime topology:** one codebase, four process roles from the *same image* —
+WEB (Octane/FrankenPHP), WORKERS (Horizon), REVERB (websockets), SCHEDULER.
+
+## Stack (locked)
+
+- **Laravel 13.x**, PHP 8.3+ (dev on 8.4). **Livewire 3 + Filament 4** + Tailwind + Alpine.
+- **PostgreSQL 17 + pgvector** — single source of truth, RAG included (no separate vector service). Embedding dim **1536** (locked to `kb_chunks.embedding`; changing it = re-embed the whole corpus, a one-way door).
+- **Redis** — cache, queues, locks, rate-limit token buckets, Reverb pub/sub.
+- **Horizon** (workers), **Reverb + Echo** (realtime), **Octane + FrankenPHP** (app server).
+- **Prism** (`prism-php/prism`) → **OpenRouter** (generation + embeddings). **Sanctum** (API, future Flutter).
+- **spatie/laravel-permission** (RBAC), **Pennant** (flags), **spatie/laravel-settings** (dynamic settings).
+- **SSLCommerz** payments (in-app billing engine; gateway is executor only). **Docker** (FrankenPHP multi-stage image, one image / many roles).
+- Quality: **Pint** (format), **Larastan** (level 5), **Pest** (tests).
+
+## Domain-module layout
+
+Modular monolith. Business logic lives under `app/Domain/<Module>/`, organized into
+bounded contexts. Each module exposes **Actions/Services** that are the *only* way
+Livewire components, API controllers, and jobs invoke behavior — keeping the web UI
+and the (future) Flutter API perfectly in sync.
+
+```
+app/Domain/
+  Tenancy/     workspaces, members, roles, invitations
+  Channels/    Meta drivers (WhatsApp/IG/Messenger), webhook verify, token vault
+  Inbox/       conversations, threading, 24h window tracking, assignment, status
+  Messaging/   canonical in/out messages, idempotency, outbound dispatcher
+  AI/          intent classification, RAG orchestration, guardrails, tools
+  Knowledge/   document ingestion, chunking, embeddings, pgvector store
+  Catalog/     products, variants, stock, delivery rules
+  Orders/      lead/order capture, payment links, stock decrement
+  Billing/     plans, subscriptions, usage metering
+  Analytics/   rollups, resolution rate, conversion, cost
+```
+
+Each module has a `README.md` (scope/contracts); where the architecture defines a
+contract there is a `Contracts/` dir (e.g. `Channels/Contracts/ChannelDriver`).
+**This phase: skeletons/contracts only — no feature logic.**
+
+## Common commands
+
+```bash
+make up       # full Docker stack up (web, horizon, reverb, scheduler, pg, redis, mailpit, minio)
+make down     # stop the stack
+make migrate  # php artisan migrate
+make fresh    # migrate:fresh --seed
+make seed     # db:seed
+make test     # pest
+make pint     # vendor/bin/pint (format)
+make stan     # vendor/bin/phpstan analyse (Larastan)
+make shell    # shell into the app container
+make logs     # tail stack logs
+```
+
+Process roles: `octane:frankenphp` (WEB) · `horizon` (WORKERS) · `reverb:start`
+(REVERB) · `schedule:work` (SCHEDULER). Local URLs: app `:8000` · `/admin` ·
+`/horizon` · Mailpit `:8025` · MinIO console `:9001`.
+
+## Conventions
+
+- **Style:** Pint / PSR-12 (`make pint`). **Types:** typed properties + signatures + return types everywhere. Larastan level 5 (raise over time).
+- **Behavior in Actions/Services**, never controllers/components/jobs (those stay thin and call an Action).
+- **PKs:** **ULID** (`HasUlids`) on write-heavy tables (messages, usage_events…) for index locality; UUID elsewhere.
+- **Multi-tenancy:** every tenant-scoped table carries `workspace_id`; models use the `BelongsToWorkspace` trait (global scope bound to the current workspace). Cross-tenant access is the exception path. Postgres RLS is planned defense-in-depth (TODO).
+- **Octane safety:** never hold tenant state in singletons; reset/scope workspace context per request and per job.
+- **Secrets:** sensitive DB columns (Meta tokens, provider keys) use the `encrypted` cast. **Panel-editable operational secrets are encrypted at rest in the DB; master secrets (APP_KEY, DB creds) live in `.env`/secrets manager only — never in the DB or UI.**
+- **Meta-policy enforcement is code, not docs:** window-legality check before every send; AI sends can **never** use the Human Agent tag; opt-out suppression; per-account rate limiting.
+- **Idempotency:** unique external message id; idempotent send keys.
+- **Non-negotiable rules belong in CI / pre-commit, not prose.** Pint + Larastan + Pest run in GitHub Actions on every push/PR; green CI is the gate, not this doc.
+
+## Working norms (this project)
+
+- **Auto-commit** after every completed step / logical unit — frequent, small, focused. Conventional messages (`feat:`/`chore:`/`ci:`/`docs:`/`test:`/`build:`). Feature branches only; **never commit to `main`**; never `git push` unless asked.
+- **Fast mode:** decide architecture-doc defaults immediately, state assumptions in one line, keep momentum. Prefer generators over hand-written boilerplate; batch edits and checks.
+- **Never commit secrets** — `.env`, `vendor/`, `node_modules/`, build artifacts are gitignored; fix `.gitignore` first if a commit would include one.
+
+## Build order (epics)
+
+E0 Foundation *(this phase)* → E1 Tenancy → E2 Channels (WA + Messenger) → E3
+Pipeline → E4 AI & RAG (OpenRouter + pgvector) → E5 Inbox → E6 Catalog & Knowledge
+→ E7 Orders & buyer payments → E8 Subscription billing → E9 Superadmin control
+plane → E10 Mobile (Flutter) → E11 Instagram + comment-to-DM → E12 Agency/white-label.
+Start Meta App Review + SSLCommerz onboarding day one — they gate launch, not code.
+
+---
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
