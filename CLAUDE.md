@@ -66,22 +66,28 @@ contract there is a `Contracts/` dir (e.g. `Channels/Contracts/ChannelDriver`).
 
 ## Common commands
 
+**Dev model:** Docker runs the lightweight backing services; the app + queue +
+Vite run on the **host** via `composer dev` (fast, full RAM, **no Octane**).
+`make up-full` runs the entire stack in Docker for parity (needs a roomy Docker
+VM). Octane + FrankenPHP is the **production** app server, not the dev server.
+
 ```bash
-make up       # full Docker stack up (web, horizon, reverb, scheduler, pg, redis, mailpit, minio)
-make down     # stop the stack
-make migrate  # php artisan migrate
-make fresh    # migrate:fresh --seed
-make seed     # db:seed
-make test     # pest
-make pint     # vendor/bin/pint (format)
-make stan     # vendor/bin/phpstan analyse (Larastan)
-make shell    # shell into the app container
-make logs     # tail stack logs
+make up        # backing services: postgres, redis, mailpit, minio, reverb
+make dev       # run the app on the host: serve + horizon + vite + logs (composer dev)
+make up-full   # entire stack in Docker incl. app roles (parity / big VM)
+make migrate   # php artisan migrate (host)
+make fresh     # migrate:fresh --seed (host)
+make seed      # db:seed (host)
+make test      # pest (host, Postgres-backed)
+make pint      # vendor/bin/pint (format)
+make stan      # Larastan
+make down      # stop the stack
 ```
 
-Process roles: `octane:frankenphp` (WEB) · `horizon` (WORKERS) · `reverb:start`
-(REVERB) · `schedule:work` (SCHEDULER). Local URLs: app `:8000` · `/admin` ·
-`/horizon` · Mailpit `:8025` · MinIO console `:9001`.
+Process roles (prod = one image, four roles): `octane:frankenphp` (WEB) ·
+`horizon` (WORKERS) · `reverb:start` (REVERB) · `schedule:work` (SCHEDULER).
+Local URLs: app `:8000` · `/admin` · `/horizon` · Reverb `:8080` · Mailpit
+`:8025` · MinIO console `:9001`. Postgres is published on host `:5434`.
 
 ## Conventions
 

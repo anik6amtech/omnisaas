@@ -37,19 +37,24 @@ Requires Docker + Docker Compose.
 git clone <repo-url> omnireply && cd omnireply
 
 cp .env.example .env          # never commit .env
-make up                       # build + start the full stack
+make up                       # backing services: postgres, redis, mailpit, minio, reverb
 make key                      # generate APP_KEY (first run only)
 make fresh                    # migrate + seed (or: make migrate && make seed)
+make dev                      # run the app on the HOST: serve + horizon + vite + logs
 ```
 
-That's it. The stack:
+**Dev model:** Docker runs the lightweight backing services; the app, queue
+worker, and Vite run on the **host** via `composer dev` (`make dev`) — fast,
+full RAM, **no Octane**. Octane + FrankenPHP is the *production* app server. To
+run the entire stack in Docker instead (parity; needs a roomy Docker VM):
+`make up-full`.
 
 | Service | URL | Notes |
 |---|---|---|
-| App (tenant `/app` + control `/admin`) | http://localhost:8000 | Octane/FrankenPHP |
+| App (tenant `/app` + control `/admin`) | http://localhost:8000 | `php artisan serve` (host) |
 | Control panel | http://localhost:8000/admin | Filament (operators) |
 | Horizon (queues) | http://localhost:8000/horizon | operators only (local: open) |
-| Reverb (websockets) | ws://localhost:8080 | realtime inbox |
+| Reverb (websockets) | ws://localhost:8080 | Docker; realtime inbox |
 | Mailpit (mail catcher) | http://localhost:8025 | — |
 | MinIO console (S3) | http://localhost:9001 | `omnireply` / `secret1234` |
 | Postgres | localhost:**5434** | published off 5432 to avoid clashes |
@@ -67,14 +72,13 @@ The seed also creates a `Demo Store` workspace and the operator RBAC roles
 ## Common commands
 
 ```bash
-make up / down / ps / logs     # stack lifecycle
-make shell                     # bash into the app container
-make migrate / fresh / seed    # database
-make test                      # Pest suite (Postgres-backed)
-make pint                      # format (PSR-12)
-make stan                      # Larastan (level 5)
-make watch                     # Octane with hot reload
-make reload                    # reload Octane workers after code changes
+make up / up-full / down / ps / logs   # stack lifecycle (lean vs full Docker)
+make dev                               # run the app on the host (composer dev)
+make migrate / fresh / seed            # database (host)
+make test                              # Pest suite (host, Postgres-backed)
+make pint                              # format (PSR-12)
+make stan                              # Larastan (level 5)
+make horizon                           # run Horizon in the foreground (host)
 ```
 
 Run `make help` for the full list.

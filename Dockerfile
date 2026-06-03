@@ -43,8 +43,9 @@ RUN composer install --prefer-dist --no-scripts --no-autoloader --no-interaction
 COPY . .
 RUN composer dump-autoload
 EXPOSE 8000 8080
-# Plain (no --watch) for a guaranteed-clean boot; `make watch` enables hot reload.
-CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=8000"]
+# Dev web server is `php artisan serve` (NOT Octane — Octane is the prod app
+# server). For the full host dev experience use `composer dev`.
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 
 # ---- prod target: optimized, self-contained ---------------------------------
 FROM base AS prod

@@ -15,6 +15,11 @@ x-app-build: &app-build
     target: dev
   image: omnireply/app:dev
   restart: unless-stopped
+  # The FrankenPHP base image ships an HTTP healthcheck that only makes sense
+  # for the web role; disable it here so worker/reverb roles don't show a false
+  # "unhealthy".
+  healthcheck:
+    disable: true
   volumes:
     - .:/app
   depends_on:
@@ -62,8 +67,16 @@ x-app-env: &app-env
   AWS_USE_PATH_STYLE_ENDPOINT: "true"
 
 services:
-  app: # WEB — Octane/FrankenPHP
+  # --- App roles (profile: full) ------------------------------------------
+  # By default the app, queue worker, and vite run on the HOST via `composer
+  # dev` (fast, full RAM) against the backing services below. Start these
+  # containers only for full-Docker parity: `docker compose --profile full up`
+  # (needs a roomier Docker VM). Reverb stays in the default stack so realtime
+  # works in host-dev too.
+  app: # WEB — `php artisan serve` in dev (Octane/FrankenPHP is prod-only)
     <<: *app-build
+    profiles: ["full"]
+    command: php artisan serve --host=0.0.0.0 --port=8000
     environment:
       <<: *app-env
     ports:
@@ -71,23 +84,25 @@ services:
 
   horizon: # WORKERS — queue supervisors
     <<: *app-build
+    profiles: ["full"]
     command: php artisan horizon
     environment:
       <<: *app-env
 
-  reverb: # REVERB — WebSocket server
+  scheduler: # SCHEDULER — cron loop
+    <<: *app-build
+    profiles: ["full"]
+    command: php artisan schedule:work
+    environment:
+      <<: *app-env
+
+  reverb: # REVERB — WebSocket server (lightweight; in the default stack)
     <<: *app-build
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     environment:
       <<: *app-env
     ports:
       - "8080:8080"
-
-  scheduler: # SCHEDULER — cron loop
-    <<: *app-build
-    command: php artisan schedule:work
-    environment:
-      <<: *app-env
 
   postgres:
     image: pgvector/pgvector:pg17
@@ -142,8 +157,9 @@ services:
       - miniodata:/data
     restart: unless-stopped
 
-  node: # Vite dev server / asset build
+  node: # Vite dev server (profile: full) — host-dev uses `composer dev`/`npm run dev`
     image: node:22-alpine
+    profiles: ["full"]
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
