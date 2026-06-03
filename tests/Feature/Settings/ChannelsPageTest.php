@@ -89,6 +89,23 @@ it('disconnects a channel', function () {
     expect(Channel::withoutGlobalScopes()->whereKey($channel->id)->exists())->toBeFalse();
 });
 
+it('shows the existing connection (not a blank connect form) when one already exists', function () {
+    $ws = channelSeller();
+    $channel = Channel::factory()->whatsapp()->recycle($ws)->create(['external_id' => 'PHONE_X', 'name' => 'My WA']);
+
+    Livewire::test(ChannelsPage::class)
+        ->assertSet('type', 'whatsapp')
+        ->assertSee('Your WhatsApp connection')              // connected-state heading
+        ->assertDontSee('Connect your WhatsApp account')      // not the blank-form heading
+        ->assertSee('PHONE_X')                                // the connected account id
+        ->assertSee("webhooks/meta/whatsapp/{$channel->id}", false); // its callback URL
+
+    // Switching to an unconnected tab falls back to the connect form.
+    Livewire::test(ChannelsPage::class)
+        ->set('type', 'instagram')
+        ->assertSee('Connect your Instagram account');
+});
+
 it('shows a channel-specific setup guide that updates with the selection', function () {
     channelSeller();
 

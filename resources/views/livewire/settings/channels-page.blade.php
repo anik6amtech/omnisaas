@@ -9,62 +9,67 @@
     <h1 class="mb-1 text-xl font-semibold text-gray-900">Channels</h1>
     <p class="mb-6 text-sm text-gray-500">Connect your WhatsApp, Instagram, or Facebook Messenger accounts.</p>
 
-    {{-- Channel tabs --}}
+    {{-- Channel tabs (green dot = at least one connected) --}}
     <div class="mb-6 flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
         @foreach ($labels as $value => $label)
+            @php $isConnected = $this->channels->contains(fn ($c) => $c->type->value === $value); @endphp
             <button type="button" wire:click="$set('type', '{{ $value }}')"
                 @class([
                     'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition',
                     'bg-white text-amber-700 shadow-sm ring-1 ring-amber-200' => $type === $value,
                     'text-gray-500 hover:text-gray-700' => $type !== $value,
-                ])>{{ $label }}</button>
+                ])>
+                <span class="inline-flex items-center gap-1.5">
+                    @if ($isConnected) <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span> @endif
+                    {{ $label }}
+                </span>
+            </button>
         @endforeach
     </div>
 
-    {{-- Step 1 — Connect the account --}}
+    {{-- Step 1 — Connect the account (shows the connection if one already exists) --}}
     <section class="mb-5 rounded-xl border border-gray-200 bg-white p-5">
         <div class="mb-4 flex items-center gap-2">
             <span class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-xs font-semibold text-white">1</span>
-            <h2 class="text-sm font-semibold text-gray-900">Connect your {{ $labels[$type] }} account</h2>
+            <h2 class="text-sm font-semibold text-gray-900">
+                {{ $typeChannels->isNotEmpty() ? "Your {$labels[$type]} connection" : "Connect your {$labels[$type]} account" }}
+            </h2>
         </div>
 
-        <form wire:submit="connect" autocomplete="off" class="space-y-4">
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">{{ $idLabel }}</label>
-                    <input wire:model="external_id" autocomplete="off"
-                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500" />
-                    @error('external_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Display name</label>
-                    <input wire:model="name" placeholder="e.g. Sadia's Store" autocomplete="off"
-                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500" />
-                </div>
+        @if ($typeChannels->isNotEmpty())
+            <div class="space-y-2">
+                @foreach ($typeChannels as $channel)
+                    <div wire:key="conn-{{ $channel->id }}" class="flex items-center justify-between rounded-lg border border-green-200 bg-green-50/50 p-3">
+                        <div class="flex min-w-0 items-center gap-2.5">
+                            <svg class="h-5 w-5 shrink-0 text-green-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" /></svg>
+                            <div class="min-w-0">
+                                <p class="font-medium text-gray-900">{{ $channel->name ?? $labels[$type] }}</p>
+                                <p class="truncate text-xs text-gray-500">{{ $idLabel }}: {{ $channel->external_id }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span @class([
+                                'rounded-full px-2 py-0.5 text-xs',
+                                'bg-green-100 text-green-700' => $channel->status === 'active',
+                                'bg-gray-100 text-gray-600' => $channel->status !== 'active',
+                            ])>{{ $channel->status }}</span>
+                            <button wire:click="disconnect('{{ $channel->id }}')"
+                                wire:confirm="Disconnect this channel?"
+                                class="text-sm text-red-600 hover:text-red-800">Disconnect</button>
+                        </div>
+                    </div>
+                @endforeach
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Access token</label>
-                <input type="password" wire:model="access_token" placeholder="long-lived token" autocomplete="new-password"
-                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500" />
-                <p class="mt-1 text-xs text-gray-400">Stored encrypted at rest. (Production: connect via Meta Embedded Signup.)</p>
-                @error('access_token') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
-            </div>
-
-            {{-- Bring your own Meta app (per-tenant credentials) --}}
-            <details class="rounded-lg border border-gray-200">
-                <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-700">Bring your own Meta app (advanced)</summary>
-                <div class="space-y-3 border-t border-gray-200 p-3">
-                    <p class="text-xs text-gray-500">Connecting your <b>own</b> Meta app? Enter its credentials — stored encrypted, per channel. Leave blank to use the platform's shared app. (Your verify token is issued automatically — see Step 2.)</p>
-                    <input wire:model="app_id" placeholder="App ID" autocomplete="off"
-                        class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" />
-                    <input type="password" wire:model="app_secret" placeholder="App secret (HMAC)" autocomplete="new-password"
-                        class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500" />
+            <details class="mt-3 rounded-lg border border-gray-200">
+                <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-gray-600">Connect another {{ $labels[$type] }} account / update token</summary>
+                <div class="border-t border-gray-200 p-4">
+                    @include('livewire.settings._connect-form')
                 </div>
             </details>
-
-            <button type="submit" class="rounded-lg bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700">Connect {{ $labels[$type] }}</button>
-        </form>
+        @else
+            @include('livewire.settings._connect-form')
+        @endif
     </section>
 
     {{-- Step 2 — Point Meta's webhook here (Callback URL + Verify token together) --}}
@@ -104,7 +109,7 @@
     </section>
 
     {{-- Full step-by-step guide (collapsible reference, reactive to the active tab) --}}
-    <details class="mb-8 rounded-xl border border-amber-200 bg-amber-50/60 p-5" open>
+    <details class="rounded-xl border border-amber-200 bg-amber-50/60 p-5">
         <summary class="cursor-pointer text-sm font-semibold text-amber-800">Full setup guide — {{ $labels[$type] }}</summary>
         <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700 [&_code]:rounded [&_code]:bg-amber-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs">
             @foreach ($this->setupSteps as $step)
@@ -116,29 +121,4 @@
             Hosted plans connect in one click via Meta Embedded Signup (coming soon); this manual form is for self-hosted / dev.
         </p>
     </details>
-
-    {{-- Connected channels (management) --}}
-    <h2 class="mb-2 text-sm font-semibold text-gray-700">Connected channels</h2>
-    <div class="space-y-2">
-        @forelse ($this->channels as $channel)
-            <div wire:key="ch-{{ $channel->id }}" class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">
-                <div class="min-w-0">
-                    <p class="font-medium text-gray-900">{{ $channel->name ?? $channel->type->label() }}</p>
-                    <p class="text-xs text-gray-500">{{ $channel->type->label() }} · {{ $channel->external_id }}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <span @class([
-                        'rounded-full px-2 py-0.5 text-xs',
-                        'bg-green-100 text-green-700' => $channel->status === 'active',
-                        'bg-gray-100 text-gray-600' => $channel->status !== 'active',
-                    ])>{{ $channel->status }}</span>
-                    <button wire:click="disconnect('{{ $channel->id }}')"
-                        wire:confirm="Disconnect this channel?"
-                        class="text-sm text-red-600 hover:text-red-800">Disconnect</button>
-                </div>
-            </div>
-        @empty
-            <p class="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-400">No channels connected yet.</p>
-        @endforelse
-    </div>
 </div>
