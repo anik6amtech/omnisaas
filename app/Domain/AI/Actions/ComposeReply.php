@@ -3,6 +3,7 @@
 namespace App\Domain\AI\Actions;
 
 use App\Domain\AI\Services\EmbeddingService;
+use App\Domain\Catalog\Services\ProductCatalog;
 use App\Domain\Knowledge\Services\KnowledgeBase;
 use App\Models\Conversation;
 use App\Models\UsageEvent;
@@ -20,10 +21,15 @@ class ComposeReply
     public function __construct(
         private readonly EmbeddingService $embedder,
         private readonly KnowledgeBase $knowledge,
+        private readonly ProductCatalog $catalog,
     ) {}
 
     public function execute(Conversation $conversation, string $message): string
     {
+        // Structured facts (price/stock) come from the catalog — RELATIONALLY,
+        // never vectorized. Unstructured context (FAQ/policy) comes from pgvector.
+        $catalogFacts = $this->catalog->factsFor($message);
+
         $embedding = $this->embedder->embed($message, $conversation->workspace_id);
         $chunks = $this->knowledge->search(
             $conversation->workspace_id,
@@ -31,9 +37,11 @@ class ComposeReply
             (int) config('ai.retrieval_limit', 6),
         );
 
-        $context = collect($chunks)
+        $knowledge = collect($chunks)
             ->map(static fn (object $row): string => (string) Arr::get((array) $row, 'content'))
             ->implode("\n---\n");
+
+        $context = "Catalog (authoritative prices & stock):\n{$catalogFacts}\n\nKnowledge base:\n{$knowledge}";
 
         $response = Prism::text()
             ->using(config('ai.provider'), config('ai.models.generation'))

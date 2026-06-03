@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Livewire\Auth\Login;
+use App\Livewire\Catalog\CatalogPage;
 use App\Livewire\Inbox\InboxPage;
+use App\Livewire\Knowledge\KnowledgePage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +23,8 @@ Route::middleware('guest:web')->group(function () {
 Route::middleware(['auth:web', 'workspace'])->prefix('app')->group(function () {
     Route::redirect('/', '/app/inbox');
     Route::get('/inbox', InboxPage::class)->name('app.inbox');
+    Route::get('/catalog', CatalogPage::class)->name('app.catalog');
+    Route::get('/knowledge', KnowledgePage::class)->name('app.knowledge');
 
     Route::post('/logout', function () {
         Auth::guard('web')->logout();
