@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetCurrentWorkspace;
 use App\Http\Middleware\VerifyMetaWebhookSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,10 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'meta.webhook' => VerifyMetaWebhookSignature::class,
+            'workspace' => SetCurrentWorkspace::class,
         ]);
 
         // Meta webhooks authenticate by HMAC signature, not CSRF.
-        $middleware->validateCsrfTokens(except: [
+        $middleware->preventRequestForgery(except: [
             'webhooks/*',
         ]);
     })
