@@ -197,34 +197,77 @@ return [
     */
 
     'defaults' => [
-        'supervisor-1' => [
+        // Inbound ingest — fast, high throughput, absorbs webhook bursts.
+        'supervisor-webhooks' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            'queue' => ['webhooks'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'size',
+            'minProcesses' => 1,
+            'maxProcesses' => 10,
+            'balanceMaxShift' => 2,
+            'balanceCooldown' => 3,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 30,
+            'nice' => 0,
+        ],
+        // AI compose — bounded by LLM throughput/cost; longer timeout.
+        'supervisor-ai' => [
+            'connection' => 'redis',
+            'queue' => ['ai'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 1,
-            'maxTime' => 0,
-            'maxJobs' => 0,
-            'memory' => 128,
-            'tries' => 1,
-            'timeout' => 60,
+            'minProcesses' => 1,
+            'maxProcesses' => 5,
+            'balanceMaxShift' => 1,
+            'balanceCooldown' => 3,
+            'memory' => 256,
+            'tries' => 2,
+            'timeout' => 85,
             'nice' => 0,
+        ],
+        // Outbound sends — bounded by per-account rate limits.
+        'supervisor-dispatch' => [
+            'connection' => 'redis',
+            'queue' => ['dispatch'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'size',
+            'minProcesses' => 1,
+            'maxProcesses' => 5,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 30,
+            'nice' => 0,
+        ],
+        // Low-priority background work.
+        'supervisor-low' => [
+            'connection' => 'redis',
+            'queue' => ['broadcasts', 'indexing', 'default'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'minProcesses' => 1,
+            'maxProcesses' => 3,
+            'memory' => 256,
+            'tries' => 2,
+            'timeout' => 60,
+            'nice' => 5,
         ],
     ],
 
     'environments' => [
         'production' => [
-            'supervisor-1' => [
-                'maxProcesses' => 10,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-            ],
+            'supervisor-webhooks' => ['maxProcesses' => 20],
+            'supervisor-ai' => ['maxProcesses' => 8],
+            'supervisor-dispatch' => ['maxProcesses' => 8],
+            'supervisor-low' => ['maxProcesses' => 4],
         ],
 
         'local' => [
-            'supervisor-1' => [
-                'maxProcesses' => 3,
-            ],
+            'supervisor-webhooks' => ['maxProcesses' => 3],
+            'supervisor-ai' => ['maxProcesses' => 2],
+            'supervisor-dispatch' => ['maxProcesses' => 2],
+            'supervisor-low' => ['maxProcesses' => 2],
         ],
     ],
 

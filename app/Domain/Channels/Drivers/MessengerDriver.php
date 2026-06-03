@@ -49,7 +49,7 @@ class MessengerDriver extends AbstractMetaDriver
     public function send(Channel $channel, OutboundMessage $message): SendResult
     {
         $response = $this->graph($channel)->post("{$channel->external_id}/messages", [
-            'recipient' => ['id' => $message->conversationId],
+            'recipient' => ['id' => $message->recipientId],
             'messaging_type' => 'RESPONSE',
             'message' => ['text' => $message->body],
         ]);

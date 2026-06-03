@@ -50,7 +50,7 @@ class WhatsAppCloudDriver extends AbstractMetaDriver
         $response = $this->graph($channel)->post("{$channel->external_id}/messages", [
             'messaging_product' => 'whatsapp',
             'recipient_type' => 'individual',
-            'to' => $this->recipientFor($message),
+            'to' => $message->recipientId,
             'type' => 'text',
             'text' => ['body' => $message->body],
         ]);
@@ -89,15 +89,10 @@ class WhatsAppCloudDriver extends AbstractMetaDriver
     {
         $type = Arr::get($message, 'type');
 
-        if (in_array($type, ['image', 'audio', 'video', 'document', 'sticker'], true)) {
+        if (\in_array($type, ['image', 'audio', 'video', 'document', 'sticker'], true)) {
             return [Arr::get($message, $type, [])];
         }
 
         return [];
-    }
-
-    protected function recipientFor(OutboundMessage $message): ?string
-    {
-        return $message->conversationId; // resolved to the customer's wa_id by the dispatcher in E3
     }
 }

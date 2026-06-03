@@ -12,7 +12,7 @@ final readonly class OutboundMessage
      * @param  array<int, array<string, mixed>>  $attachments
      */
     public function __construct(
-        public string $conversationId,
+        public string $recipientId,   // the customer's channel id (wa_id / psid)
         public string $body,
         public string $author = 'ai', // ai | agent
         public array $attachments = [],

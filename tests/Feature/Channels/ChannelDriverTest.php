@@ -36,7 +36,7 @@ it('sends a WhatsApp text message via the Graph API', function () {
     $channel = Channel::factory()->whatsapp()->create(['external_id' => 'PHONE1']);
 
     $result = (new WhatsAppCloudDriver)->send($channel, new OutboundMessage(
-        conversationId: '8801700000000',
+        recipientId: '8801700000000',
         body: 'Hello!',
     ));
 
