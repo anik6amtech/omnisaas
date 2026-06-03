@@ -21,9 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'workspace' => SetCurrentWorkspace::class,
         ]);
 
-        // Meta webhooks authenticate by HMAC signature, not CSRF.
+        // Meta webhooks (HMAC) + SSLCommerz callbacks authenticate by their own
+        // means (signature / IPN val_id), not CSRF.
         $middleware->preventRequestForgery(except: [
             'webhooks/*',
+            'payments/return',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

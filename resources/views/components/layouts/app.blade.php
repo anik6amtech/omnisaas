@@ -14,7 +14,7 @@
             <div class="flex items-center gap-6">
                 <span class="text-lg font-semibold text-amber-600">OmniReply</span>
                 <nav class="flex items-center gap-4 text-sm">
-                    @foreach (['app.inbox' => 'Inbox', 'app.catalog' => 'Catalog', 'app.knowledge' => 'Knowledge'] as $route => $label)
+                    @foreach (['app.inbox' => 'Inbox', 'app.orders' => 'Orders', 'app.catalog' => 'Catalog', 'app.knowledge' => 'Knowledge'] as $route => $label)
                         <a href="{{ route($route) }}" wire:navigate
                            @class(['font-medium', 'text-amber-600' => request()->routeIs($route), 'text-gray-500 hover:text-gray-900' => ! request()->routeIs($route)])>{{ $label }}</a>
                     @endforeach
