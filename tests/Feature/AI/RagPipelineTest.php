@@ -4,6 +4,7 @@ use App\Domain\AI\Actions\ClassifyIntent;
 use App\Domain\AI\Actions\ComposeReply;
 use App\Domain\AI\Jobs\GenerateAiReply;
 use App\Domain\AI\Services\EmbeddingService;
+use App\Domain\Billing\Services\Entitlements;
 use App\Domain\Inbox\Actions\EscalateConversation;
 use App\Domain\Inbox\Enums\ConversationStatus;
 use App\Domain\Inbox\Events\ConversationEscalated;
@@ -166,6 +167,7 @@ function runGenerate(Conversation $conversation): void
         app(ComposeReply::class),
         app(SendMessageAction::class),
         app(EscalateConversation::class),
+        app(Entitlements::class),
         app(CurrentWorkspace::class),
     );
 }

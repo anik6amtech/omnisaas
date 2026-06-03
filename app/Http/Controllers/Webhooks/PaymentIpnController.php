@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Webhooks;
 
+use App\Domain\Billing\Actions\SettleInvoice;
 use App\Domain\Billing\Contracts\PaymentGateway;
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Http\Request;
@@ -52,8 +54,9 @@ class PaymentIpnController extends Controller
 
             if ($payable instanceof Order) {
                 $payable->update(['payment_status' => 'paid', 'status' => 'confirmed']);
+            } elseif ($payable instanceof Invoice) {
+                app(SettleInvoice::class)->execute($payable);
             }
-            // Subscription activation is handled in E8.
         });
 
         return response('OK', 200);

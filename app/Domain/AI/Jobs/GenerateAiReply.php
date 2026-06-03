@@ -4,6 +4,7 @@ namespace App\Domain\AI\Jobs;
 
 use App\Domain\AI\Actions\ClassifyIntent;
 use App\Domain\AI\Actions\ComposeReply;
+use App\Domain\Billing\Services\Entitlements;
 use App\Domain\Inbox\Actions\EscalateConversation;
 use App\Domain\Messaging\Actions\SendMessageAction;
 use App\Domain\Messaging\Enums\MessageAuthor;
@@ -45,6 +46,7 @@ class GenerateAiReply implements ShouldQueue
         ComposeReply $compose,
         SendMessageAction $send,
         EscalateConversation $escalate,
+        Entitlements $entitlements,
         CurrentWorkspace $workspace,
     ): void {
         $workspace->set($this->conversation->workspace_id);
@@ -56,6 +58,13 @@ class GenerateAiReply implements ShouldQueue
                 ->first();
 
             if ($latest === null || blank($latest->body)) {
+                return;
+            }
+
+            // Plan entitlement: out of the monthly AI-reply allowance ⇒ hand off.
+            if (! $entitlements->canSendAiReply()) {
+                $escalate->execute($this->conversation, 'ai_quota_exceeded');
+
                 return;
             }
 
