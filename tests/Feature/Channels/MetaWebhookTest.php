@@ -139,6 +139,17 @@ it('verifies a bring-your-own-app webhook with the per-channel app secret', func
     $post('app-secret')->assertForbidden();            // the shared secret must NOT work here
 });
 
+it('verifies a channel with no own token against its workspace token (tenant-wise)', function () {
+    $channel = Channel::factory()->whatsapp()->create(['verify_token' => null]);
+    $token = $channel->workspace->webhookVerifyToken(); // tenant-wide token, generated + persisted
+
+    $this->get("/webhooks/meta/whatsapp/{$channel->id}?hub_mode=subscribe&hub_verify_token={$token}&hub_challenge=77")
+        ->assertOk()->assertSee('77');
+
+    $this->get("/webhooks/meta/whatsapp/{$channel->id}?hub_mode=subscribe&hub_verify_token=wrong&hub_challenge=77")
+        ->assertForbidden();
+});
+
 it('answers the per-channel verification challenge with the channel verify token', function () {
     $channel = Channel::factory()->whatsapp()->create(['verify_token' => 'chan-verify']);
 

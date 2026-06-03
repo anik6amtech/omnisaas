@@ -77,9 +77,18 @@ class Channel extends Model
         return (string) ($this->app_secret ?: config('services.meta.app_secret'));
     }
 
-    /** Webhook verify token for this channel — its own, else the shared app's. */
+    /**
+     * Webhook verify token for this channel: an explicit per-channel override if
+     * set, otherwise the owning workspace's tenant-wide token, otherwise the
+     * platform's shared-app token (.env). Tenants on their own Meta app verify
+     * against a token unique to their workspace.
+     */
     public function effectiveVerifyToken(): string
     {
-        return (string) ($this->verify_token ?: config('services.meta.webhook_verify_token'));
+        return (string) (
+            $this->verify_token
+            ?: $this->workspace?->webhook_verify_token
+            ?: config('services.meta.webhook_verify_token')
+        );
     }
 }

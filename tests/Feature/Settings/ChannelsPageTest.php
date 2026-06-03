@@ -113,8 +113,8 @@ it('rejects connecting a channel already owned by another workspace', function (
         ->assertHasErrors('external_id');
 });
 
-it('stores per-channel Meta app credentials encrypted, with .env fallback', function () {
-    channelSeller();
+it('stores the per-channel Meta app secret encrypted, with .env fallback', function () {
+    $ws = channelSeller();
 
     Livewire::test(ChannelsPage::class)
         ->set('type', 'facebook')
@@ -122,18 +122,32 @@ it('stores per-channel Meta app credentials encrypted, with .env fallback', func
         ->set('access_token', 'tok')
         ->set('app_id', 'APP1')
         ->set('app_secret', 'my-app-secret')
-        ->set('verify_token', 'my-verify')
         ->call('connect')
         ->assertHasNoErrors();
 
     $channel = Channel::withoutGlobalScopes()->where('external_id', 'PAGE7')->sole();
 
     expect($channel->effectiveAppSecret())->toBe('my-app-secret')
-        ->and($channel->effectiveVerifyToken())->toBe('my-verify')
-        ->and(DB::table('channels')->where('id', $channel->id)->value('app_secret'))->not->toBe('my-app-secret');
+        ->and(DB::table('channels')->where('id', $channel->id)->value('app_secret'))->not->toBe('my-app-secret')
+        // No per-channel verify token ⇒ the channel verifies against the
+        // workspace's tenant-wide token (shown on the page).
+        ->and($channel->effectiveVerifyToken())->toBe($ws->fresh()->webhook_verify_token);
 
-    // A channel with no own credentials falls back to the shared app's (.env).
+    // A channel with no own app secret falls back to the shared app's (.env).
     config(['services.meta.app_secret' => 'shared-secret']);
     $shared = Channel::factory()->whatsapp()->create(['app_secret' => null]);
     expect($shared->effectiveAppSecret())->toBe('shared-secret');
+});
+
+it('issues a verify token unique to each workspace (tenant-wise)', function () {
+    $wsA = channelSeller();
+    $tokenA = Livewire::test(ChannelsPage::class)->instance()->verifyToken();
+
+    expect($tokenA)->toStartWith('omr_')
+        ->and($wsA->fresh()->webhook_verify_token)->toBe($tokenA); // generated + persisted on view
+
+    // A different tenant sees a different token.
+    channelSeller();
+    $tokenB = Livewire::test(ChannelsPage::class)->instance()->verifyToken();
+    expect($tokenB)->not->toBe($tokenA);
 });

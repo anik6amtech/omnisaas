@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 
 /**
  * A workspace = a tenant. Root of the shared-DB multi-tenant model; every
@@ -26,6 +27,7 @@ use Illuminate\Support\Arr;
  * @property string $plan
  * @property string|null $custom_domain
  * @property array<string, mixed>|null $branding
+ * @property string|null $webhook_verify_token
  */
 class Workspace extends Model
 {
@@ -58,6 +60,21 @@ class Workspace extends Model
     public function brandColor(): string
     {
         return (string) Arr::get($this->branding ?? [], 'color', 'amber');
+    }
+
+    /**
+     * This tenant's webhook verify token — stable, unique per workspace, and
+     * generated on first read. The seller pastes it into their own Meta app's
+     * webhook config; {@see Channel::effectiveVerifyToken()} falls back to it.
+     */
+    public function webhookVerifyToken(): string
+    {
+        if ($this->webhook_verify_token === null) {
+            $this->webhook_verify_token = 'omr_'.Str::random(32);
+            $this->save();
+        }
+
+        return $this->webhook_verify_token;
     }
 
     /**

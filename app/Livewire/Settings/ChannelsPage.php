@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Domain\Channels\Actions\ConnectChannel;
 use App\Domain\Channels\Enums\ChannelType;
+use App\Domain\Tenancy\Context\CurrentWorkspace;
 use App\Livewire\Concerns\InteractsWithWorkspace;
 use App\Models\Channel;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -36,12 +37,12 @@ class ChannelsPage extends Component
     public string $access_token = '';
 
     // Optional — "bring your own Meta app" (self-hosted / agency). Blank ⇒ the
-    // platform's shared app credentials (config/services.php) are used.
+    // platform's shared app credentials (config/services.php) are used. The
+    // verify token is NOT entered here — it's issued per workspace and shown
+    // in the setup panel (see verifyToken()).
     public string $app_id = '';
 
     public string $app_secret = '';
-
-    public string $verify_token = '';
 
     /**
      * @return Collection<int, Channel>
@@ -64,7 +65,6 @@ class ChannelsPage extends Component
                 $this->name ?: null,
                 trim($this->app_id) ?: null,
                 trim($this->app_secret) ?: null,
-                trim($this->verify_token) ?: null,
             );
         } catch (UniqueConstraintViolationException) {
             $this->addError('external_id', 'This channel is already connected to another workspace.');
@@ -72,7 +72,7 @@ class ChannelsPage extends Component
             return;
         }
 
-        $this->reset('external_id', 'name', 'access_token', 'app_id', 'app_secret', 'verify_token');
+        $this->reset('external_id', 'name', 'access_token', 'app_id', 'app_secret');
         unset($this->channels);
     }
 
@@ -94,10 +94,15 @@ class ChannelsPage extends Component
         return url("/webhooks/meta/{$type}");
     }
 
-    /** The verify token to paste into the Meta webhook config (from .env). */
+    /**
+     * The verify token to paste into the Meta webhook config — unique to this
+     * workspace (tenant-wise), generated on first view. Falls back to the shared
+     * platform token only if no workspace context is resolved.
+     */
     public function verifyToken(): string
     {
-        return (string) config('services.meta.webhook_verify_token');
+        return app(CurrentWorkspace::class)->get()?->webhookVerifyToken()
+            ?? (string) config('services.meta.webhook_verify_token');
     }
 
     /**
